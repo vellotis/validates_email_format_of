@@ -16,8 +16,12 @@ module ValidatesEmailFormatOf
 
   @@default_options = {}
 
-  def self.get_mx_records(email)
-    domain = email.to_s.downcase.match(/\@(.+)/)[1]
+  def self.get_mx_records(email, options={})
+  	opts = self.get_options(options)
+    email = self.sanitize_email email
+  	
+  	domain_override = opts[:email_domain].is_a?(Proc) ? opts[:email_domain].call(email) : opts[:email_domain]
+    domain = (domain_override.is_a?(String)) ? domain_override : email.to_s.downcase.split('@', 2)[1]
     Resolv::DNS.open do |dns|
       dns.getresources(domain, Resolv::DNS::Resource::IN::MX)
     end
@@ -37,15 +41,14 @@ module ValidatesEmailFormatOf
     end
   end
 
-  def self.validate_email_domain(email)
-    email = self.sanitize_email email
-    mxrs = self.get_mx_records(email)
+  def self.validate_email_domain(email, options={})
+    mxrs = self.get_mx_records(email, options)
     [mxrs.size > 0, mxrs]
   end
 
-  def self.validate_email_pingable(email, mxrs=nil)
+  def self.validate_email_pingable(email, mxrs=nil, options={})
     email = self.sanitize_email email
-    mxrs = self.get_mx_records(email) unless mxrs
+    mxrs = self.get_mx_records(email, options) unless mxrs
     mxrs.sort! {|x, y| x.preference <=> y.preference}
 
     result = nil
@@ -74,7 +77,6 @@ module ValidatesEmailFormatOf
   # * <tt>strict</tt> Use strict regex for e-mail validation (default is true)
   def self.validate_email(email, options={})
       opts = self.get_options(options)
-      email = self.sanitize_email email
 
       return [ opts[:message] ] unless self.validate_email_format(email, opts: opts)
 
@@ -89,7 +91,7 @@ module ValidatesEmailFormatOf
 
           if opts[:check_mx_ping]
             validity = self.validate_email_pingable(email, mxrs)
-            unless validity.nil? and validity
+            if not validity.nil? and not validity
               return [ opts[:mx_ping_message] ]
             end
           end
@@ -113,7 +115,7 @@ module ValidatesEmailFormatOf
         return false
       end
 
-      return false if email =~ /[^ -~｡-ﾟ]/
+      return false if email =~ /[^ -~?-?]/
 
       # need local and domain parts
       return false unless local and not local.empty? and domain and not domain.empty?

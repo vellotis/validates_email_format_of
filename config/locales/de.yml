@@ -4,5 +4,6 @@ de:
       messages:
         invalid_email_address: 'ist offensichtlich keine gültige E-Mail-Adresse'
         email_address_not_routable: 'kann nicht erreicht werden'
+        email_address_not_pingable: 'kann nicht ping werden'
   activerecord:
     <<: *errors

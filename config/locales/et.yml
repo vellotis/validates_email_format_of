@@ -1,0 +1,10 @@
+en:
+  activemodel: &errors
+    errors:
+      messages:
+        invalid_email_address: 'ei tundu olema korrektne e-posti aadress'
+        email_address_not_routable: 'ei ole kättesaadav'
+        email_address_not_pingable: 'ei ole pingitav'
+        mx_timeout: 'MX kirje protsessimine aegus'
+  activerecord:
+    <<: *errors

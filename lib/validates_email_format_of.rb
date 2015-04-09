@@ -8,21 +8,56 @@ module ValidatesEmailFormatOf
   end
 
   require 'resolv'
+  require 'net/smtp'
+  require 'timeout'
+  require 'random_data'
 
   LocalPartSpecialChars = /[\!\#\$\%\&\'\*\-\/\=\?\+\-\^\_\`\{\|\}\~]/
 
-  def self.validate_email_domain(email)
+  def self.get_mx_records(email)
     domain = email.to_s.downcase.match(/\@(.+)/)[1]
     Resolv::DNS.open do |dns|
-      @mx = dns.getresources(domain, Resolv::DNS::Resource::IN::MX) + dns.getresources(domain, Resolv::DNS::Resource::IN::A)
+      dns.getresources(domain, Resolv::DNS::Resource::IN::MX)
     end
-    @mx.size > 0 ? true : false
+  end
+
+  def self.ping_email(email, email_host)
+    begin
+      Net::SMTP.start(email_host, 25) do |smtp|
+        smtp.open_message_stream(Random.email, [ email ])
+      end
+    rescue Exception => e
+      if (e.is_a? ArgumentError) && (e.message == 'message or block is required')
+        true
+      else
+        nil
+      end
+    end
+  end
+
+  def self.validate_email_domain(email)
+    mxrs = self.get_mx_records(email)
+    [mxrs.size > 0, mxrs]
+  end
+
+  def self.validate_email_pingable(email, mxrs=nil)
+    mxrs = self.get_mx_records(email) unless mxrs
+    mxrs.sort! {|x, y| x.preference <=> y.preference}
+
+    result = nil
+    mxrs.each { |mxr|
+      result = self.ping_email(email, mxr.exchange.to_s)
+      return result unless result.nil?
+    }
+    result
   end
 
   DEFAULT_MESSAGE = "does not appear to be valid"
   DEFAULT_MX_MESSAGE = "is not routable"
+  DEFAULT_MX_PING_MESSAGE = "is not pingable"
   ERROR_MESSAGE_I18N_KEY = :invalid_email_address
   ERROR_MX_MESSAGE_I18N_KEY = :email_address_not_routable
+  ERROR_MX_PING_MESSAGE_I18N_KEY = :email_address_not_pingable
 
   def self.default_message
     defined?(I18n) ? I18n.t(ERROR_MESSAGE_I18N_KEY, :scope => [:activemodel, :errors, :messages], :default => DEFAULT_MESSAGE) : DEFAULT_MESSAGE
@@ -34,15 +69,24 @@ module ValidatesEmailFormatOf
   # Configuration options:
   # * <tt>message</tt> - A custom error message (default is: "does not appear to be valid")
   # * <tt>check_mx</tt> - Check for MX records (default is false)
+  # * <tt>check_mx_ping</tt> - Ping email address on SMTP server according to MX records (default is false)
+  # * <tt>check_mx_timeout</tt> - Timeout for MX records processing (default is nil)
+  # * <tt>mx_timeout_validity</tt> - Result in case DNS or SMTP total time exceeds timeout (default is nil)
   # * <tt>mx_message</tt> - A custom error message when an MX record validation fails (default is: "is not routable.")
+  # * <tt>mx_ping_message</tt> - A custom error message when an MX record e-mail address pinging fails (default is: "is not pingable.")
   # * <tt>with</tt> The regex to use for validating the format of the email address (deprecated)
   # * <tt>local_length</tt> Maximum number of characters allowed in the local part (default is 64)
   # * <tt>domain_length</tt> Maximum number of characters allowed in the domain part (default is 255)
   # * <tt>generate_message</tt> Return the I18n key of the error message instead of the error message itself (default is false)
+  # * <tt>strict</tt> Use strict regex for e-mail validation (default is true)
   def self.validate_email_format(email, options={})
       default_options = { :message => options[:generate_message] ? ERROR_MESSAGE_I18N_KEY : default_message,
                           :check_mx => false,
+                          :check_mx_ping => false,
+                          :check_mx_timeout = nil,
+                          :mx_timeout_validity = nil,
                           :mx_message => options[:generate_message] ? ERROR_MX_MESSAGE_I18N_KEY : (defined?(I18n) ? I18n.t(ERROR_MX_MESSAGE_I18N_KEY, :scope => [:activemodel, :errors, :messages], :default => DEFAULT_MX_MESSAGE) : DEFAULT_MX_MESSAGE),
+                          :mx_ping_message => options[:generate_message] ? ERROR_MX_PING_MESSAGE_I18N_KEY : (defined?(I18n) ? I18n.t(ERROR_MX_PING_MESSAGE_I18N_KEY, :scope => [:activemodel, :errors, :messages], :default => DEFAULT_MX_PING_MESSAGE) : DEFAULT_MX_PING_MESSAGE),
                           :domain_length => 255,
                           :local_length => 64,
                           :generate_message => false,
@@ -75,8 +119,24 @@ module ValidatesEmailFormatOf
         return [ opts[:message] ] unless self.validate_local_part_syntax(local, opts[:strict]) and self.validate_domain_part_syntax(domain)
       end
 
-      if opts[:check_mx] and !self.validate_email_domain(email)
-        return [ opts[:mx_message] ]
+      begin
+        Timeout.timeout(opts[:timeout]) {
+          if opts[:check_mx]
+            validity, mxrs = self.validate_email_domain(email)
+            unless validity
+              return [ opts[:mx_message] ]
+            end
+          end
+
+          if opts[:check_mx_ping]
+            validity = self.validate_email_pingable(email, mxrs)
+            unless validity.nil? and validity
+              return [ opts[:mx_ping_message] ]
+            end
+          end
+        }
+      rescue Timeout::Error => e
+        return opt[:mx_timeout_validity]
       end
 
       return nil    # represents no validation errors

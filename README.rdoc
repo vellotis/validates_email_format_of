@@ -1,6 +1,6 @@
 = validates_email_format_of Gem and Rails Plugin
 
-Validate e-mail addresses against RFC 2822 and RFC 3696.
+Validate e-mail addresses against RFC 2822, RFC 3696 and RFC 2821.
 
 == Installation
 
@@ -37,28 +37,42 @@ Or in your Gemfile:
 === Options
 
   :message
-     String. A custom error message when the email format is invalid (default is: "does not appear to be a valid e-mail address")
+    String. A custom error message when the email format is invalid (default is: "does not appear to be a valid e-mail address")
   :check_mx
-     Boolean. Check domain for a valid MX record (default is false)
+    Boolean. Check domain for a valid MX record (default is false)
+  :check_mx_ping
+    Boolean. Ping email address on SMTP server according to MX records (default is false)
+  :check_mx_timeout
+    Integer. Timeout for MX records processing (default is nil)
+  :mx_timeout_error_important
+    Boolean. Return error in case DNS or SMTP total time exceeds timeout (default is false)
   :email_domain
-     String or a Proc. The email domain to check MX against (default is everything after the '@')
+    String or a Proc. The email domain to check MX against (default is everything after the '@')
   :mx_message
-     String. A custom error message when the domain does not match a valid MX record (default is: "is not routable").  Ignored unless :check_mx option is true.
+    String. A custom error message when the domain does not match a valid MX record (default is: "is not routable").  Ignored unless :check_mx option is true.
+  :mx_ping_message
+    String. A custom error message when an MX record e-mail address pinging fails (default is: "is not pingable").  Ignored unless :check_mx_ping option is true.
+  :mx_timeout_message
+    String. A custom error message when a MX record e-mail address validation and pinging timeouts (default is: "MX record processing timed out").  Ignored unless :mx_timeout_error_important option is true.
   :local_length
     Maximum number of characters allowed in the local part (everything before the '@') (default is 64)
   :domain_length
     Maximum number of characters allowed in the domain part (everything after the '@') (default is 255)
   :generate_message
     Boolean. Return the I18n key of the error message instead of the error message itself (default is false)
+  :strict
+    Boolean. Use strict regex for e-mail validation (default is true)
   :with
     Specify a custom Regex as the valid email format.
-  :on, :if, :unless, :allow_nil, :allow_blank, :strict
+  :on, :if, :unless, :allow_nil, :allow_blank
      Standard ActiveModel validation options.  These work in the ActiveModel/ActiveRecord/Rails syntax only.
      See http://api.rubyonrails.org/classes/ActiveModel/Validations/ClassMethods.html#method-i-validates for details.
 
 == Testing
 
 To execute the unit tests run <tt>rspec</tt>.
+
+## !!! Sadly tests aren't updated !!!
 
 Tested in Ruby 1.8.7, 1.9.2, 1.9.3, 2.0.0, 2.1.2, JRuby and REE 1.8.7.
 

@@ -45,7 +45,8 @@ module ValidatesEmailFormatOf
                           :mx_message => options[:generate_message] ? ERROR_MX_MESSAGE_I18N_KEY : (defined?(I18n) ? I18n.t(ERROR_MX_MESSAGE_I18N_KEY, :scope => [:activemodel, :errors, :messages], :default => DEFAULT_MX_MESSAGE) : DEFAULT_MX_MESSAGE),
                           :domain_length => 255,
                           :local_length => 64,
-                          :generate_message => false
+                          :generate_message => false,
+                          :strict => true
                           }
       opts = options.merge(default_options) {|key, old, new| old}  # merge the default options into the specified options, retaining all specified options
 
@@ -56,6 +57,8 @@ module ValidatesEmailFormatOf
       rescue
         return [ opts[:message] ]
       end
+
+      return [ opts[:message] ] if email =~ /[^ -~｡-ﾟ]/
 
       # need local and domain parts
       return [ opts[:message] ] unless local and not local.empty? and domain and not domain.empty?
@@ -69,7 +72,7 @@ module ValidatesEmailFormatOf
       if opts.has_key?(:with) # holdover from versions <= 1.4.7
         return [ opts[:message] ] unless email =~ opts[:with]
       else
-        return [ opts[:message] ] unless self.validate_local_part_syntax(local) and self.validate_domain_part_syntax(domain)
+        return [ opts[:message] ] unless self.validate_local_part_syntax(local, opts[:strict]) and self.validate_domain_part_syntax(domain)
       end
 
       if opts[:check_mx] and !self.validate_email_domain(email)
@@ -80,7 +83,7 @@ module ValidatesEmailFormatOf
   end
 
 
-  def self.validate_local_part_syntax(local)
+  def self.validate_local_part_syntax(local, strict=true)
     in_quoted_pair = false
     in_quoted_string = false
 
@@ -108,6 +111,7 @@ module ValidatesEmailFormatOf
 
       next if local[i,1] =~ /[a-z0-9]/i
       next if local[i,1] =~ LocalPartSpecialChars
+      next unless strict
 
       # period must be followed by something
       if ord == 46

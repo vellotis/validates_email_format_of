@@ -58,6 +58,8 @@ Or in your Gemfile:
     Maximum number of characters allowed in the local part (everything before the '@') (default is 64)
   :domain_length
     Maximum number of characters allowed in the domain part (everything after the '@') (default is 255)
+  :email_domain
+    String or Proc. Domain name override to search MX records. Must be String or Proc that returns String. (default is nil)
   :generate_message
     Boolean. Return the I18n key of the error message instead of the error message itself (default is false)
   :strict

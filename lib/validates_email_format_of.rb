@@ -15,10 +15,13 @@ module ValidatesEmailFormatOf
   LocalPartSpecialChars = /[\!\#\$\%\&\'\*\-\/\=\?\+\-\^\_\`\{\|\}\~]/
 
   @@default_options = {}
+  def self.default_options
+    @@default_options
+  end
 
   def self.get_mx_records(email, options={})
   	opts = self.get_options(options)
-    email = self.sanitize_email email
+    email = self.sanitize_email(email)
   	
   	domain_override = opts[:email_domain].is_a?(Proc) ? opts[:email_domain].call(email) : opts[:email_domain]
     domain = (domain_override.is_a?(String)) ? domain_override : email.to_s.downcase.split('@', 2)[1]
@@ -29,7 +32,8 @@ module ValidatesEmailFormatOf
 
   def self.ping_email(email, email_host)
     begin
-      Net::SMTP.start(email_host, 25) do |smtp|
+      helo = ENV['SERVER_ADDR'] || 'localhost'
+      Net::SMTP.start(email_host, 25, helo) do |smtp|
         smtp.open_message_stream(Random.email, [ email ])
       end
     rescue Exception => e
@@ -47,7 +51,7 @@ module ValidatesEmailFormatOf
   end
 
   def self.validate_email_pingable(email, mxrs=nil, options={})
-    email = self.sanitize_email email
+    email = self.sanitize_email(email)
     mxrs = self.get_mx_records(email, options) unless mxrs
     mxrs.sort! {|x, y| x.preference <=> y.preference}
 
@@ -74,6 +78,7 @@ module ValidatesEmailFormatOf
   # * <tt>with</tt> The regex to use for validating the format of the email address (deprecated)
   # * <tt>local_length</tt> Maximum number of characters allowed in the local part (default is 64)
   # * <tt>domain_length</tt> Maximum number of characters allowed in the domain part (default is 255)
+  # * <tt>email_domain</tt> Domain name override to search MX records. Must be String or Proc that returns String. (default is nil)
   # * <tt>generate_message</tt> Return the I18n key of the error message instead of the error message itself (default is false)
   # * <tt>strict</tt> Use strict regex for e-mail validation (default is true)
   def self.validate_email(email, options={})
@@ -108,7 +113,7 @@ module ValidatesEmailFormatOf
 
   def self.validate_email_format(email, options={})
       opts = self.get_options(options)
-      email = self.sanitize_email email
+      email = self.sanitize_email(email)
 
       begin
         domain, local = email.reverse.split('@', 2)
@@ -226,13 +231,14 @@ module ValidatesEmailFormatOf
                             :mx_ping_message => get_message(ERROR_MX_PING_MESSAGE_I18N_KEY, DEFAULT_MX_PING_MESSAGE, options),
                             :mx_timeout_message => get_message(ERROR_MX_TIMEOUT_MESSAGE_I18N_KEY, DEFAULT_MX_TIMEOUT_MESSAGE, options),
                             :domain_length => 255,
+                            :email_domain => nil,
                             :local_length => 64,
                             :generate_message => false,
                             :strict => true
                             }
         default_options.merge!(@@default_options)
 
-        options.merge(default_options) {|key, old, new| old}  # merge the default options into the specified options, retaining all specified options
+        default_options.merge(options)
       end
     end
 

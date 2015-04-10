@@ -8,7 +8,7 @@ module ValidatesEmailFormatOf
   end
 
   require 'resolv'
-  require 'net/smtp'
+  require 'net/telnet'
   require 'timeout'
   require 'random_data'
 
@@ -32,17 +32,25 @@ module ValidatesEmailFormatOf
 
   def self.ping_email(email, email_host)
     begin
-      helo = ENV['SERVER_ADDR'] || 'localhost'
-      Net::SMTP.start(email_host, 25, helo) do |smtp|
-        smtp.open_message_stream(Random.email, [ email ])
-      end
+      helo_domain = ENV['SERVER_ADDR'] || 'localhost'
+      telnet = Net::Telnet.new(
+                "Host" => email_host,
+                "Port" => 25,
+                "Prompt" => /^\d{3}\s/
+                )
+      telnet.waitfor 'Match' => /^\d{3}\s/
+      [
+        "HELO #{ helo_domain }",
+        "mail from:<#{ 'asd@asd.ee' }>",
+        "rcpt to:<#{ email }>",
+      ].all? { |cmd| telnet.cmd(cmd) =~ /^2\d{2}\s/ }
     rescue Exception => e
-      if (e.is_a? ArgumentError) && (e.message == 'message or block is required')
-        true
-      else
-        nil
-      end
+      puts e.message
+      nil
+    ensure
+      telnet.close rescue nil
     end
+
   end
 
   def self.validate_email_domain(email, options={})

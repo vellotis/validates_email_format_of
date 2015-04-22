@@ -32,7 +32,6 @@ module ValidatesEmailFormatOf
 
   def self.ping_email(email, email_host)
     begin
-      helo_domain = ENV['SERVER_ADDR'] || 'localhost'
       telnet = Net::Telnet.new(
                 "Host" => email_host,
                 "Port" => 25,
@@ -40,7 +39,7 @@ module ValidatesEmailFormatOf
                 )
       telnet.waitfor 'Match' => /^\d{3}\s/
       [
-        "HELO #{ helo_domain }",
+        "HELO #{ self.helo_domain }",
         "mail from:<#{ 'asd@asd.ee' }>",
         "rcpt to:<#{ email }>",
       ].all? { |cmd| telnet.cmd(cmd) =~ /^2\d{2}\s/ }
@@ -256,6 +255,12 @@ module ValidatesEmailFormatOf
 
     def self.get_message i18n_key, default_message, options
       options[:generate_message] ? i18n_key : (defined?(I18n) ? I18n.t(i18n_key, :scope => [:activemodel, :errors, :messages], :default => default_message) : default_message)
+    end
+	
+    def self.helo_domain
+        (ActionMailer::Base.default_url_options[:host] rescue nil) \
+        || ENV['SERVER_ADDR']                                      \
+        || 'localhost'
     end
 
 end

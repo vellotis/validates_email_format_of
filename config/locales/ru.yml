@@ -1,0 +1,10 @@
+ru:
+  activemodel: &errors
+    errors:
+      messages:
+        invalid_email_address: 'некорректный e-mail'
+        email_address_not_routable: 'не доступен'
+        email_address_not_pingable: 'не отвечает запросу ping'
+        mx_timeout: 'таймаут запроса записи MX'
+  activerecord:
+    <<: *errors

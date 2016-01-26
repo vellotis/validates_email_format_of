@@ -10,7 +10,7 @@ module ValidatesEmailFormatOf
   require 'resolv'
   require 'net/telnet'
   require 'timeout'
-  require 'random_data'
+  require 'faker'
 
   LocalPartSpecialChars = /[\!\#\$\%\&\'\*\-\/\=\?\+\-\^\_\`\{\|\}\~]/
 
@@ -40,7 +40,7 @@ module ValidatesEmailFormatOf
       telnet.waitfor 'Match' => /^\d{3}\s/
       [
         "HELO #{ self.helo_domain }",
-        "mail from:<#{ 'asd@asd.ee' }>",
+        "mail from:<#{ Faker::Internet.safe_email }>",
         "rcpt to:<#{ email }>",
       ].all? { |cmd| telnet.cmd(cmd) =~ /^2\d{2}\s/ }
     rescue Exception => e
@@ -93,25 +93,25 @@ module ValidatesEmailFormatOf
 
       return [ opts[:message] ] unless self.validate_email_format(email, opts: opts)
 
-      begin
-        Timeout.timeout(opts[:timeout]) {
-          if opts[:check_mx]
+      if opts[:check_mx] || opts[:check_mx_ping]
+        begin
+          Timeout.timeout(opts[:timeout]) {
             validity, mxrs = self.validate_email_domain(email)
             unless validity
               return [ opts[:mx_message] ]
             end
-          end
 
-          if opts[:check_mx_ping]
-            validity = self.validate_email_pingable(email, mxrs)
-            if not validity.nil? and not validity
-              return [ opts[:mx_ping_message] ]
+            if opts[:check_mx_ping]
+              validity = self.validate_email_pingable(email, mxrs)
+              if not validity.nil? and not validity
+                return [ opts[:mx_ping_message] ]
+              end
             end
+          }
+        rescue Timeout::Error => e
+          if opt[:mx_timeout_error_important]
+            return [ opt[:mx_timeout_message] ]
           end
-        }
-      rescue Timeout::Error => e
-        if opt[:mx_timeout_error_important]
-          return [ opt[:mx_timeout_message] ]
         end
       end
 

@@ -20,7 +20,7 @@ spec = Gem::Specification.new do |s|
   else
     s.add_dependency 'i18n'
   end
-  s.add_dependency 'random_data'
+  s.add_dependency 'faker'
 
   s.add_development_dependency 'bundler'
   s.add_development_dependency 'rspec'

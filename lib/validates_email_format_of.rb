@@ -95,7 +95,7 @@ module ValidatesEmailFormatOf
 
       if opts[:check_mx] || opts[:check_mx_ping]
         begin
-          Timeout.timeout(opts[:timeout]) {
+          Timeout.timeout(opts[:check_mx_timeout]) {
             validity, mxrs = self.validate_email_domain(email)
             unless validity
               return [ opts[:mx_message] ]

@@ -38,11 +38,11 @@ module ValidatesEmailFormatOf
                 "Prompt" => /^\d{3}\s/
                 )
       telnet.waitfor 'Match' => /^\d{3}\s/
-      [
-        "HELO #{ self.helo_domain }",
-        "mail from:<#{ Faker::Internet.safe_email }>",
-        "rcpt to:<#{ email }>",
-      ].all? { |cmd| telnet.cmd(cmd) =~ /^2\d{2}\s/ }
+      ![
+        ["HELO #{ self.helo_domain }",                  /^2\d{2}\s/],
+        ["mail from:<#{ Faker::Internet.safe_email }>", /^2\d{2}\s/],
+        ["rcpt to:<#{ email }>",                        /^550-5\.1\.1\s/]
+      ].all? { |cmd| telnet.cmd(cmd[0]) =~ cmd[1] }
     rescue Exception => e
       puts e.message
       nil

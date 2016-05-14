@@ -109,8 +109,8 @@ module ValidatesEmailFormatOf
             end
           }
         rescue Timeout::Error => e
-          if opt[:mx_timeout_error_important]
-            return [ opt[:mx_timeout_message] ]
+          if opts[:mx_timeout_error_important]
+            return [ opts[:mx_timeout_message] ]
           end
         end
       end
